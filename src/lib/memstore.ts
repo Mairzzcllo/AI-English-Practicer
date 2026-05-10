@@ -30,15 +30,23 @@ class InMemoryCollection {
     const _id = doc._id as string
     this.docs.set(_id, doc)
   }
+
+  async delete(id: string) {
+    this.docs.delete(id)
+  }
 }
 
-class InMemoryStore {
+export class InMemoryStore {
   sessions = new InMemoryCollection()
 }
 
-let store: InMemoryStore | null = null
+export function getMemStore(): InMemoryStore {
+  if (!globalThis.__ai_english_memstore) {
+    globalThis.__ai_english_memstore = new InMemoryStore()
+  }
+  return globalThis.__ai_english_memstore
+}
 
-export function getMemStore() {
-  if (!store) store = new InMemoryStore()
-  return store
+export function resetMemStore() {
+  delete globalThis.__ai_english_memstore
 }

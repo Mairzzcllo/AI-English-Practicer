@@ -1,18 +1,31 @@
-import type { Industry, Difficulty, QuestionFeedback } from "@/types"
+import type { Mode, Industry, Difficulty, Topic } from "@/types"
 
 export interface AiAdapter {
-  generateQuestion(
-    industry: Industry,
+  generateOpeningQuestion(
+    mode: Mode,
     difficulty: Difficulty,
-    previousQuestions: string[]
+    industry?: Industry,
+    topic?: Topic
   ): Promise<string>
 
-  generateFeedback(
-    question: string,
-    userAnswer: string
-  ): Promise<QuestionFeedback>
+  generateConversationResponse(
+    conversation: { role: "ai" | "user"; content: string }[],
+    mode: Mode,
+    difficulty: Difficulty,
+    industry?: Industry,
+    topic?: Topic
+  ): Promise<{ content: string; shouldEnd: boolean }>
 
   generateSummary(
-    questions: { question: string; userAnswer: string; feedback?: QuestionFeedback }[]
-  ): Promise<{ overallScore: number; summary: string }>
+    conversation: { role: "ai" | "user"; content: string }[],
+    mode: Mode,
+    difficulty: Difficulty,
+    industry?: Industry,
+    topic?: Topic
+  ): Promise<{
+    overallScore: number
+    summary: string
+    strengths: string[]
+    improvements: string[]
+  }>
 }

@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI English Mock Interview
 
-## Getting Started
+Practice English interviews with AI feedback. Speak your answers, get grammar corrections, word choice improvements, and pronunciation scores in real time.
 
-First, run the development server:
+## Stack
+
+| Layer | Technology |
+|-------|------------|
+| Framework | Next.js 16 (App Router) |
+| UI | React 19 + Tailwind CSS v4 |
+| Voice | Web Speech API (browser STT/TTS, Chrome-recommended) |
+| AI | Adapter pattern — OpenAI / DeepSeek |
+| Database | MongoDB + Mongoose (in-memory fallback for dev) |
+| Test | Vitest |
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 20+
+- MongoDB (optional — app falls back to in-memory storage)
+
+### Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.local.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Fill in your API keys in `.env.local`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+AI_PROVIDER=openai
+OPENAI_API_KEY=sk-...               # or use DeepSeek
+DEEPSEEK_API_KEY=sk-...
+MONGODB_URI=mongodb://localhost:27017/ai-english-practice
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Run
 
-## Learn More
+```bash
+npm install
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open [http://localhost:3000](http://localhost:3000).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Commands
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Start dev server |
+| `npm run build` | Production build |
+| `npm run lint` | ESLint |
+| `npm test` | Run unit tests |
+| `npm run test:watch` | Run tests in watch mode |
 
-## Deploy on Vercel
+Run order: `lint → test → build`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## API
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/interview/start` | Create session, get first question |
+| POST | `/api/interview/answer` | Submit answer, get AI feedback |
+| POST | `/api/interview/next-question` | Advance to next question |
+| POST | `/api/interview/end` | Complete session, get summary |
+| GET | `/api/history` | List completed sessions |
+| GET | `/api/history/[id]` | Get session detail |
+| DELETE | `/api/history/[id]` | Delete a session |
+
+## Architecture
+
+```
+Client (React) → API Routes → Store Layer → MongoDB / In-Memory
+                                  ↓
+                          AI Adapter → OpenAI / DeepSeek
+```
+
+All AI calls go through an `AiAdapter` interface. Switch providers via the `AI_PROVIDER` environment variable. Add new providers by implementing the interface in `src/lib/ai/`.
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── api/interview/       # Interview API routes
+│   ├── api/history/         # History API routes
+│   ├── interview/           # Interview UI
+│   └── history/             # History UI
+├── lib/
+│   ├── ai/                  # AI adapters
+│   ├── store.ts             # Unified data store
+│   ├── memstore.ts          # In-memory dev fallback
+│   └── mongoose.ts          # MongoDB connection
+├── models/Session.ts        # Mongoose schema
+└── types/                   # TypeScript types
+```
+
+## License
+
+MIT

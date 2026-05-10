@@ -11,34 +11,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 })
     }
 
-    await completeSession(sessionId)
-
     const adapter = createAiAdapter()
-    const answeredQuestions = session.questions
-      .filter((q) => q.userAnswer && q.feedback)
-      .map((q) => ({
-        question: q.question,
-        userAnswer: q.userAnswer,
-        feedback: q.feedback!,
-      }))
+    const summary = await adapter.generateSummary(
+      session.messages.map(m => ({ role: m.role, content: m.content })),
+      session.mode,
+      session.difficulty,
+      session.industry,
+      session.topic
+    )
 
-    let summary = { overallScore: 0, summary: "Interview completed." }
-    if (answeredQuestions.length > 0) {
-      summary = await adapter.generateSummary(answeredQuestions)
-    }
+    await completeSession(sessionId, summary)
+
+    const duration = session.startedAt
+      ? Math.round((Date.now() - new Date(session.startedAt).getTime()) / 1000)
+      : 0
 
     return NextResponse.json({
       summary: {
-        totalQuestions: session.questions.length,
-        avgScore:
-          answeredQuestions.reduce((acc, q) => acc + (q.feedback.overallScore ?? 0), 0) /
-          Math.max(answeredQuestions.length, 1),
-        duration: session.questions.reduce((acc, q) => acc + q.duration, 0),
         ...summary,
+        duration,
+        totalMessages: session.messages.length,
       },
     })
   } catch (error) {
-    console.error("Failed to end interview:", error)
-    return NextResponse.json({ error: "Failed to end interview" }, { status: 500 })
+    console.error("Failed to end:", error)
+    return NextResponse.json({ error: "Failed to end" }, { status: 500 })
   }
 }

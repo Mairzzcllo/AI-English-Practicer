@@ -1,63 +1,53 @@
 import mongoose, { Schema, Document } from "mongoose"
-import type { Industry, Difficulty, SessionStatus } from "@/types"
+import type { Mode, Industry, Difficulty, Topic, SessionStatus } from "@/types"
 
-export interface IQuestion {
-  questionId: number
-  question: string
-  userAnswer: string
-  feedback?: {
-    grammar: string[]
-    wordChoice: string[]
-    pronunciationScore: number
-    overallScore: number
-    suggestion: string
-  }
-  duration: number
+export interface IMessage {
+  role: "ai" | "user"
+  content: string
   createdAt: Date
 }
 
 export interface ISession extends Document {
-  industry: Industry
+  mode: Mode
+  industry?: Industry
+  topic?: Topic
   difficulty: Difficulty
   status: SessionStatus
-  questions: IQuestion[]
+  messages: IMessage[]
+  startedAt: Date
+  endedAt?: Date
+  summary?: {
+    overallScore: number
+    summary: string
+    strengths: string[]
+    improvements: string[]
+  }
   createdAt: Date
   updatedAt: Date
 }
 
-const questionSchema = new Schema<IQuestion>({
-  questionId: { type: Number, required: true },
-  question: { type: String, required: true },
-  userAnswer: { type: String, default: "" },
-  feedback: {
-    grammar: [String],
-    wordChoice: [String],
-    pronunciationScore: Number,
-    overallScore: Number,
-    suggestion: String,
-  },
-  duration: { type: Number, default: 0 },
+const messageSchema = new Schema<IMessage>({
+  role: { type: String, enum: ["ai", "user"], required: true },
+  content: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
 })
 
 const sessionSchema = new Schema<ISession>(
   {
-    industry: {
-      type: String,
-      enum: ["tech", "marketing", "management"],
-      required: true,
+    mode: { type: String, enum: ["interview", "conversation"], default: "interview" },
+    industry: { type: String, enum: ["tech", "marketing", "management"] },
+    topic: { type: String, enum: ["travel", "technology", "culture", "food", "sports", "music", "education", "career"] },
+    difficulty: { type: String, enum: ["beginner", "intermediate", "advanced"], required: true },
+    status: { type: String, enum: ["in_progress", "completed"], default: "in_progress" },
+    messages: [messageSchema],
+    startedAt: { type: Date, default: Date.now },
+    endedAt: Date,
+    summary: {
+      overallScore: Number,
+      summary: String,
+      strengths: [String],
+      improvements: [String],
     },
-    difficulty: {
-      type: String,
-      enum: ["beginner", "intermediate", "advanced"],
-      required: true,
-    },
-    status: {
-      type: String,
-      enum: ["in_progress", "completed"],
-      default: "in_progress",
-    },
-    questions: [questionSchema],
   },
   { timestamps: true }
 )

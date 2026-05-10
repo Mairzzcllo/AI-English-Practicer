@@ -1,23 +1,24 @@
 import { connectDB } from "./mongoose"
-import { Session as MongoSession, type IQuestion } from "@/models/Session"
+import { Session as MongoSession, type IMessage } from "@/models/Session"
 import { getMemStore } from "./memstore"
-import type { Industry, Difficulty, QuestionFeedback } from "@/types"
+import type { Mode, Industry, Difficulty, Topic } from "@/types"
 
-interface QuestionData {
-  questionId: number
-  question: string
-  userAnswer: string
-  feedback?: QuestionFeedback
-  duration: number
-  createdAt: Date
-}
-
-interface SessionData {
+export interface SessionData {
   _id: string
-  industry: Industry
+  mode: Mode
+  industry?: Industry
+  topic?: Topic
   difficulty: Difficulty
   status: "in_progress" | "completed"
-  questions: QuestionData[]
+  messages: { role: "ai" | "user"; content: string; createdAt: Date }[]
+  startedAt: Date
+  endedAt?: Date
+  summary?: {
+    overallScore: number
+    summary: string
+    strengths: string[]
+    improvements: string[]
+  }
   createdAt: Date
   updatedAt: Date
 }
@@ -36,22 +37,30 @@ async function checkMongo() {
   }
 }
 
-export async function createSession(industry: Industry, difficulty: Difficulty, firstQuestion: string): Promise<string> {
+export async function createSession(
+  params: {
+    mode: Mode
+    industry?: Industry
+    topic?: Topic
+    difficulty: Difficulty
+    firstMessage: { role: "ai"; content: string; createdAt: Date }
+  }
+): Promise<string> {
+  const { mode, industry, topic, difficulty, firstMessage } = params
   if (await checkMongo()) {
     const session = await MongoSession.create({
-      industry, difficulty,
-      status: "in_progress",
-      questions: [{ questionId: 1, question: firstQuestion, userAnswer: "", duration: 0, createdAt: new Date() }],
+      mode, industry, topic, difficulty, status: "in_progress",
+      messages: [firstMessage],
+      startedAt: new Date(),
     })
     return session._id.toString()
   }
-
   const mem = getMemStore()
   const now = new Date()
   const doc = await mem.sessions.create({
-    industry, difficulty,
-    status: "in_progress",
-    questions: [{ questionId: 1, question: firstQuestion, userAnswer: "", duration: 0, createdAt: now }],
+    mode, industry, topic, difficulty, status: "in_progress",
+    messages: [firstMessage],
+    startedAt: now,
     createdAt: now, updatedAt: now,
   })
   return doc._id as string
@@ -60,83 +69,72 @@ export async function createSession(industry: Industry, difficulty: Difficulty, 
 export async function getSession(id: string): Promise<SessionData | null> {
   if (await checkMongo()) {
     const s = await MongoSession.findById(id).lean()
-    if (!s) return null
-    return { ...s, _id: s._id.toString() } as unknown as SessionData
+    return s ? ({ ...s, _id: s._id.toString() } as unknown as SessionData) : null
   }
-
-  const mem = getMemStore()
-  const doc = await mem.sessions.findById(id)
-  if (!doc) return null
-  return doc as unknown as SessionData
+  const doc = await getMemStore().sessions.findById(id)
+  return doc as unknown as SessionData | null
 }
 
-export async function updateQuestion(
-  sessionId: string, questionId: number,
-  answer: string, feedback: QuestionFeedback
+export async function addMessage(
+  sessionId: string, message: { role: "ai" | "user"; content: string; createdAt: Date }
 ) {
   if (await checkMongo()) {
     const session = await MongoSession.findById(sessionId)
     if (!session) return
-    const q = session.questions.find((q: QuestionData) => q.questionId === questionId)
-    if (!q) return
-    q.userAnswer = answer
-    q.feedback = feedback
+    session.messages.push(message as IMessage)
     await session.save()
     return
   }
-
   const mem = getMemStore()
   const doc = await mem.sessions.findById(sessionId)
   if (!doc) return
-  const questions = doc.questions as unknown as QuestionData[]
-  const q = questions.find((q: QuestionData) => q.questionId === questionId)
-  if (!q) return
-  q.userAnswer = answer
-  q.feedback = feedback
+  const msgs = (doc.messages as { role: string; content: string; createdAt: Date }[]) ?? []
+  msgs.push(message)
+  doc.messages = msgs
   mem.sessions.save(doc)
 }
 
-export async function pushQuestion(sessionId: string, q: QuestionData) {
-  if (await checkMongo()) {
-    const session = await MongoSession.findById(sessionId)
-    if (!session) return
-    session.questions.push(q as IQuestion)
-    await session.save()
-    return
-  }
-
-  const mem = getMemStore()
-  const doc = await mem.sessions.findById(sessionId)
-  if (!doc) return
-  const questions = doc.questions as unknown as QuestionData[]
-  questions.push(q)
-  doc.questions = questions as unknown as QuestionData[]
-  mem.sessions.save(doc)
-}
-
-export async function completeSession(sessionId: string) {
+export async function completeSession(
+  sessionId: string, summary?: { overallScore: number; summary: string; strengths: string[]; improvements: string[] }
+) {
   if (await checkMongo()) {
     const session = await MongoSession.findById(sessionId)
     if (!session) return
     session.status = "completed"
+    session.endedAt = new Date()
+    if (summary) session.summary = summary
     await session.save()
     return
   }
-
   const mem = getMemStore()
   const doc = await mem.sessions.findById(sessionId)
   if (!doc) return
   doc.status = "completed"
+  doc.endedAt = new Date()
+  if (summary) doc.summary = summary as Record<string, unknown>
   mem.sessions.save(doc)
+}
+
+export async function deleteSession(sessionId: string) {
+  if (await checkMongo()) {
+    await MongoSession.findByIdAndDelete(sessionId)
+    return
+  }
+  const mem = getMemStore()
+  await mem.sessions.delete(sessionId)
 }
 
 export async function listSessions(): Promise<SessionData[]> {
   if (await checkMongo()) {
-    const sessions = await MongoSession.find({ status: "completed" }).sort({ createdAt: -1 }).lean()
+    const sessions = await MongoSession.find({ status: "completed" })
+      .sort({ createdAt: -1 })
+      .select("mode industry topic difficulty createdAt messages summary")
+      .lean()
     return sessions.map((s) => ({ ...s, _id: s._id.toString() } as unknown as SessionData))
   }
-
   const mem = getMemStore()
   const docs = await mem.sessions.find({ status: "completed" })
-  return docs.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()) as unknown as SessionData[]
+  return docs.sort(
+    (a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()
+  ) as unknown as SessionData[]
 }
