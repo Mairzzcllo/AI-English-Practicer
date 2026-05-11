@@ -1,100 +1,48 @@
-# AI English Mock Interview
+# TalkEasy AI
 
-Practice English interviews with AI feedback. Speak your answers, get grammar corrections, word choice improvements, and pronunciation scores in real time.
+Practice English interviews and casual conversations with an AI tutor. Speak naturally, get instant responses, and receive detailed feedback on your performance.
 
-## Stack
+## Features
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Next.js 16 (App Router) |
-| UI | React 19 + Tailwind CSS v4 |
-| Voice | Web Speech API (browser STT/TTS, Chrome-recommended) |
-| AI | Adapter pattern — OpenAI / DeepSeek |
-| Database | MongoDB + Mongoose (in-memory fallback for dev) |
-| Test | Vitest |
+- **Two modes**: Choose a structured industry interview or a free-flowing conversation
+- **Voice interaction**: Speak your answers — the AI listens and responds in real time
+- **Instant feedback**: After each session, get an overall score with strengths and areas to improve
+- **Session history**: Review past conversations with full transcripts and scores
+- **15-minute sessions**: Timed practice sessions with auto-detect silence
 
 ## Quick Start
 
-### Prerequisites
+1. Clone the repo and install dependencies:
 
-- Node.js 20+
-- MongoDB (optional — app falls back to in-memory storage)
+   ```bash
+   npm install
+   ```
 
-### Setup
+2. Copy the environment template and add your API keys:
 
-```bash
-cp .env.local.example .env.local
-```
+   ```bash
+   cp .env.local.example .env.local
+   ```
 
-Fill in your API keys in `.env.local`:
+3. Start the dev server:
 
-```env
-AI_PROVIDER=openai
-OPENAI_API_KEY=sk-...               # or use DeepSeek
-DEEPSEEK_API_KEY=sk-...
-MONGODB_URI=mongodb://localhost:27017/ai-english-practice
-```
+   ```bash
+   npm run dev
+   ```
 
-### Run
+4. Open [http://localhost:3000](http://localhost:3000) and start practicing.
 
-```bash
-npm install
-npm run dev
-```
+> **Note**: Chrome is recommended for the best speech recognition experience. MongoDB is optional — the app falls back to in-memory storage for development.
 
-Open [http://localhost:3000](http://localhost:3000).
+## Tech
 
-## Commands
-
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Start dev server |
-| `npm run build` | Production build |
-| `npm run lint` | ESLint |
-| `npm test` | Run unit tests |
-| `npm run test:watch` | Run tests in watch mode |
-
-Run order: `lint → test → build`.
-
-## API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/interview/start` | Create session, get first question |
-| POST | `/api/interview/answer` | Submit answer, get AI feedback |
-| POST | `/api/interview/next-question` | Advance to next question |
-| POST | `/api/interview/end` | Complete session, get summary |
-| GET | `/api/history` | List completed sessions |
-| GET | `/api/history/[id]` | Get session detail |
-| DELETE | `/api/history/[id]` | Delete a session |
-
-## Architecture
-
-```
-Client (React) → API Routes → Store Layer → MongoDB / In-Memory
-                                  ↓
-                          AI Adapter → OpenAI / DeepSeek
-```
-
-All AI calls go through an `AiAdapter` interface. Switch providers via the `AI_PROVIDER` environment variable. Add new providers by implementing the interface in `src/lib/ai/`.
-
-## Project Structure
-
-```
-src/
-├── app/
-│   ├── api/interview/       # Interview API routes
-│   ├── api/history/         # History API routes
-│   ├── interview/           # Interview UI
-│   └── history/             # History UI
-├── lib/
-│   ├── ai/                  # AI adapters
-│   ├── store.ts             # Unified data store
-│   ├── memstore.ts          # In-memory dev fallback
-│   └── mongoose.ts          # MongoDB connection
-├── models/Session.ts        # Mongoose schema
-└── types/                   # TypeScript types
-```
+| Layer | |
+|-------|-|
+| Framework | Next.js 16 |
+| UI | React 19 + Tailwind CSS v4 |
+| Voice | Web Speech API |
+| AI | OpenAI / DeepSeek |
+| Database | MongoDB |
 
 ## License
 
