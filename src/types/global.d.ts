@@ -7,4 +7,8 @@ declare global {
     promise: Promise<typeof mongoose> | null
   }
   var __ai_english_memstore: InMemoryStore | undefined
+
+  interface Window {
+    webkitSpeechRecognition: typeof SpeechRecognition
+  }
 }

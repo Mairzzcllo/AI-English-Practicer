@@ -48,7 +48,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center">
+    <div className="flex flex-1 items-center justify-center py-8">
       <div className="w-full max-w-md space-y-6">
         <div className="glass rounded-2xl p-8 space-y-6">
           <div className="text-center space-y-2">

@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 7 complete: Free Talk mode. Mode selector + topic picker. AI adapter supports both interview and conversation prompts. Layout fixed (End button always visible). Rebranded to TalkEasy AI.
+Phase 8 complete: interview page (3 screen components + orchestration) + history page modularized (SessionCard, SkeletonList, EmptyHistory, SessionMetaCard, NotFoundState + refactored pages). 163 tests passing, lint clean, build succeeds.
 
 ## Stack
 
@@ -35,10 +35,28 @@ src/
 │   │   ├── interview/talk/route.ts     POST — conversation turn (passes session.mode/topic/industry)
 │   │   ├── interview/end/route.ts      POST — complete session, get AI summary
 │   │   └── history/[id]/route.ts       GET — session detail, DELETE — delete session
-│   ├── interview/page.tsx              continuous conversation UI (mode-aware titles + badges)
-│   ├── history/page.tsx                history list with mode badge + score + delete
-│   └── history/[id]/page.tsx           history detail with mode/topic/industry info
+│   ├── interview/page.tsx              orchestration layer (3 screens + hooks)
+│   ├── history/page.tsx                history list (SessionCard + SkeletonList + EmptyHistory)
+│   └── history/[id]/page.tsx           history detail (SessionMetaCard + NotFoundState + messages)
+├── components/
+│   └── ui/
+│       ├── MessageBubble.tsx           shared message bubble (user/AI)
+│       ├── ScoreCircle.tsx             score circle (lg/sm sizes)
+│       ├── StrengthsImprovements.tsx   strengths/improvements grid
+│       ├── AudioVisualizer.tsx         canvas-based frequency visualizer
+│       ├── MicPermissionBanner.tsx     microphone permission banner
+│       ├── LoadingSkeleton.tsx         animated pulse skeleton
+│       ├── EmptyState.tsx              empty state with action button
+│       ├── IntroScreen.tsx             interview intro (language/speed select, start button, errors)
+│       ├── EndedScreen.tsx             interview end (score, summary, stats, nav buttons)
+│       ├── ConversingScreen.tsx        interview conversing (sidebar, messages, transcript, status bar)
+│       ├── SessionCard.tsx             history list card with score + delete
+│       ├── SkeletonList.tsx            history list loading skeleton
+│       ├── EmptyHistory.tsx            history list empty state
+│       ├── SessionMetaCard.tsx         history detail metadata card (score + stats)
+│       └── NotFoundState.tsx           history detail not found state
 ├── lib/
+│   ├── constants.ts                    LANGUAGES + SPEECH_RATES
 │   ├── mongoose.ts                     cached MongoDB connection
 │   ├── store.ts                        unified store (MongoDB → in-memory fallback)
 │   ├── memstore.ts                     in-memory store via globalThis (HMR-safe)
@@ -47,11 +65,20 @@ src/
 │       ├── openai.ts                   OpenAI adapter (mode-aware prompts)
 │       ├── deepseek.ts                 DeepSeek adapter (JSON extraction fallback, mode-aware)
 │       └── index.ts                    factory (env AI_PROVIDER)
+├── hooks/
+│   ├── useSpeechRecognition.ts         STT hook (continuous, auto-restart, exponential backoff, error types)
+│   ├── useSpeechSynthesis.ts           TTS hook (promise-based speak/cancel, lang/rate/pitch/volume)
+│   ├── useSilenceDetection.ts          Silence detection via polling (configurable threshold/interval)
+│   ├── useAiVoiceFilter.ts             AI echo cancellation via word-overlap-ratio (>0.6)
+│   ├── useTimer.ts                     Countdown timer (active flag + onExpire callback)
+│   ├── useMicPermission.ts             Microphone permission query via Permissions API
+│   ├── useSessionList.ts               History list fetch + delete
+│   └── useSessionDetail.ts             History detail fetch + delete
 ├── models/
 │   └── Session.ts                      Mongoose schema (mode + topic + messages)
 └── types/
     ├── index.ts                        shared types (Mode, Industry, Difficulty, Topic, Message, etc.)
-    └── global.d.ts                     global mongoose + memstore type cache
+    └── global.d.ts                     global mongoose + memstore type cache + webkitSpeechRecognition
 ```
 
 ## Architecture rules
@@ -60,6 +87,12 @@ src/
 - **ADR-002**: Web Speech API only. No paid speech services. Chrome is the target browser.
 - **ADR-003**: Design system via Tailwind v4 `@utility` + CSS variables. `glass` / `glass-hover` for glassmorphism cards. Brand gradient `from-indigo-500 to-purple-600`. Defined in `globals.css:root`.
 - **ADR-004**: Mode system — `Mode = "interview" | "conversation"`. Conversation mode: user-led, AI initiates on 2.5s silence, `shouldEnd` always false. Separate AI prompts per mode.
+- **ADR-005**: Hooks are separated by concern (STT, TTS, silence, echo-cancel) — not a monolithic VoiceSession. Each hook uses ref-based callbacks (`onResultRef`, `onSilenceRef`) updated in `useEffect` to avoid stale closures (React 19 compliant — no render-direct mutations).
+- **ADR-006**: `useSpeechRecognition` is thin — it does NOT accumulate transcript internally. Parent manages via `onResult` callback and refs.
+- **ADR-007**: Silence detection uses polling (interval) rather than `speechend` event for cross-browser reliability.
+- **ADR-008**: STT restart attempts counter reset only on `onresult` (successful speech) or explicit `stopListening()`. Not reset in `startListening()` itself (defeats maxRestartAttempts). `onend` restarts are NOT subject to `maxRestartAttempts` — only error-based restarts (`onerror`) respect the limit. Natural session endings always restart.
+- **ADR-009**: Test mocks use shared `vi.fn()` for `start`/`stop`/`abort` across all recognition instances (track total calls across restarts). Class-based mock uses static property (`MockSpeechRecognition.latestInstance`) instead of `this` aliasing.
+- **ADR-010**: Async TTS tests use `await act(async () => { ... })` to flush microtasks for promise-based `speak()` flows.
 - API routes use `connectDB()` from `src/lib/mongoose.ts` (cached singleton — safe to call repeatedly).
 - **Store layer** (`src/lib/store.ts`): auto-detects MongoDB; falls back to in-memory if unavailable.
 - **Memstore** (`src/lib/memstore.ts`): uses `globalThis` for HMR-safe persistence.
@@ -67,6 +100,8 @@ src/
 - DeepSeek adapter uses JSON extraction (find `{...}` in response) instead of `response_format`.
 - `role` mapping: `"ai"` → `"assistant"` when sending to AI providers.
 - `createSession` takes a params object `{ mode, industry?, topic?, difficulty, firstMessage }`.
+- **ADR-011**: Workspace layout — `body` uses `h-screen overflow-hidden` to prevent page scrolling. Header is `shrink-0` (not `sticky`). Sidebar is `w-64 shrink-0`. Only the messages/content area uses `overflow-y-auto` (single scroll region). Fixed elements use `shrink-0` in flex layout. All `flex-1` ancestors in the chain must have `min-h-0`.
+- **ADR-012** (`adr/ADR-012.md`): Screen component pattern — each interview phase extracted to a dedicated `src/components/ui/` screen component receiving all data via props; page.tsx reduced to orchestration layer (268 lines, was 451).
 
 ## Env vars
 
