@@ -13,7 +13,8 @@ export interface AiAdapter {
     mode: Mode,
     difficulty: Difficulty,
     industry?: Industry,
-    topic?: Topic
+    topic?: Topic,
+    personaPrompt?: string
   ): Promise<{ content: string; shouldEnd: boolean }>
 
   generateSummary(

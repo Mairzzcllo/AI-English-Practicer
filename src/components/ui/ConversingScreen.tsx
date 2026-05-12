@@ -1,6 +1,5 @@
 import { type RefObject } from "react"
 import type { Mode, Industry, Difficulty, Topic } from "@/types"
-import { LANGUAGES } from "@/lib/constants"
 import { MessageBubble } from "@/components/ui/MessageBubble"
 import { AudioVisualizer } from "@/components/ui/AudioVisualizer"
 
@@ -9,7 +8,6 @@ export function ConversingScreen({
   industry,
   topic,
   difficulty,
-  selectedLang,
   error,
   messages,
   displayTranscript,
@@ -27,7 +25,6 @@ export function ConversingScreen({
   industry: Industry
   topic: Topic | null
   difficulty: Difficulty
-  selectedLang: string
   error: string | null
   messages: { role: string; content: string }[]
   displayTranscript: string
@@ -54,9 +51,6 @@ export function ConversingScreen({
             <div className="text-xs text-zinc-500 capitalize font-medium">{difficulty}</div>
             <div className="flex flex-wrap gap-1.5">
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/50 text-zinc-500 capitalize">{mode}</span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/50 text-zinc-500">
-                {LANGUAGES.find((l) => l.value === selectedLang)?.label ?? selectedLang}
-              </span>
             </div>
           </div>
 

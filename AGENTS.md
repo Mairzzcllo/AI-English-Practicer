@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 8 complete: interview page (3 screen components + orchestration) + history page modularized (SessionCard, SkeletonList, EmptyHistory, SessionMetaCard, NotFoundState + refactored pages). 163 tests passing, lint clean, build succeeds.
+Phase 10 (P2 Integration & Scaling) complete. Cognitive Runtime fully integrated into /talk route with persona persistence, caching, and telemetry. 431 tests passing (38 files), lint clean.
 
 ## Stack
 
@@ -34,7 +34,8 @@ src/
 │   │   ├── interview/start/route.ts    POST — create session, opening question (accepts mode + topic)
 │   │   ├── interview/talk/route.ts     POST — conversation turn (passes session.mode/topic/industry)
 │   │   ├── interview/end/route.ts      POST — complete session, get AI summary
-│   │   └── history/[id]/route.ts       GET — session detail, DELETE — delete session
+│   │   ├── history/[id]/route.ts       GET — session detail, DELETE — delete session
+│   │   └── telemetry/route.ts          GET — telemetry summary/detail, DELETE — reset telemetry
 │   ├── interview/page.tsx              orchestration layer (3 screens + hooks)
 │   ├── history/page.tsx                history list (SessionCard + SkeletonList + EmptyHistory)
 │   └── history/[id]/page.tsx           history detail (SessionMetaCard + NotFoundState + messages)
@@ -47,7 +48,7 @@ src/
 │       ├── MicPermissionBanner.tsx     microphone permission banner
 │       ├── LoadingSkeleton.tsx         animated pulse skeleton
 │       ├── EmptyState.tsx              empty state with action button
-│       ├── IntroScreen.tsx             interview intro (language/speed select, start button, errors)
+│       ├── IntroScreen.tsx             interview intro (speed select, start button, errors)
 │       ├── EndedScreen.tsx             interview end (score, summary, stats, nav buttons)
 │       ├── ConversingScreen.tsx        interview conversing (sidebar, messages, transcript, status bar)
 │       ├── SessionCard.tsx             history list card with score + delete
@@ -56,15 +57,26 @@ src/
 │       ├── SessionMetaCard.tsx         history detail metadata card (score + stats)
 │       └── NotFoundState.tsx           history detail not found state
 ├── lib/
-│   ├── constants.ts                    LANGUAGES + SPEECH_RATES
+│   ├── constants.ts                    SPEECH_RATES
 │   ├── mongoose.ts                     cached MongoDB connection
 │   ├── store.ts                        unified store (MongoDB → in-memory fallback)
 │   ├── memstore.ts                     in-memory store via globalThis (HMR-safe)
-│   └── ai/
-│       ├── adapter.ts                  AiAdapter interface (mode + topic + industry params)
-│       ├── openai.ts                   OpenAI adapter (mode-aware prompts)
-│       ├── deepseek.ts                 DeepSeek adapter (JSON extraction fallback, mode-aware)
-│       └── index.ts                    factory (env AI_PROVIDER)
+│   ├── ai/
+│   │   ├── adapter.ts                  AiAdapter interface (mode + topic + industry params)
+│   │   ├── openai.ts                   OpenAI adapter (mode-aware prompts)
+│   │   ├── deepseek.ts                 DeepSeek adapter (JSON extraction fallback, mode-aware)
+│   │   └── index.ts                    factory (env AI_PROVIDER)
+│   └── ai/persona/ (Phase 9 — Cognitive Runtime)
+│       ├── types.ts           PersonaConfig, EmotionalState, RuntimeState, RelationshipState, BehavioralPolicy, MemoryEvent, ConversationState, MemoryPolicy, etc.
+│       ├── state.ts           EmotionalState valence/arousal/dominance, RuntimeState decay, ConversationState tracking, processSignal
+│       ├── relationship.ts    familiarity/trust/comfort/humorAcceptance, signal processing, decay, quality scoring
+│       ├── memory.ts          episodic compression + retrieval, MemoryPolicy-aware retention, memory summary
+│       ├── policies.ts        Behavior Modulation Layer — verbosity, initiative, humor, interrupt, correction, mirror, topic persistence
+│       ├── mutation.ts        State Mutation Rules Engine — RuleEvaluator, applyMutations, 11 built-in rules
+│       ├── orchestrator.ts    cognitive pipeline coordinator
+│       ├── persona.ts         PersonaAgent facade
+│       ├── prompts.ts         dynamic persona prompt assembly
+│       └── store.ts           event-sourced MongoDB collections
 ├── hooks/
 │   ├── useSpeechRecognition.ts         STT hook (continuous, auto-restart, exponential backoff, error types)
 │   ├── useSpeechSynthesis.ts           TTS hook (promise-based speak/cancel, lang/rate/pitch/volume)
@@ -102,6 +114,9 @@ src/
 - `createSession` takes a params object `{ mode, industry?, topic?, difficulty, firstMessage }`.
 - **ADR-011**: Workspace layout — `body` uses `h-screen overflow-hidden` to prevent page scrolling. Header is `shrink-0` (not `sticky`). Sidebar is `w-64 shrink-0`. Only the messages/content area uses `overflow-y-auto` (single scroll region). Fixed elements use `shrink-0` in flex layout. All `flex-1` ancestors in the chain must have `min-h-0`.
 - **ADR-012** (`adr/ADR-012.md`): Screen component pattern — each interview phase extracted to a dedicated `src/components/ui/` screen component receiving all data via props; page.tsx reduced to orchestration layer (268 lines, was 451).
+- **ADR-013** (`adr/ADR-013.md`): Cognitive Runtime Architecture — `src/lib/ai/persona/` as standalone engine with stateful persona, relationship as first-class object, event-sourced memory, behavioral policies modulation layer, and explicit state mutation rules. P0: engine, P1: behavioral validation, P2: integration.
+- **ADR-014**: Policy/Mutation separation — `policies.ts` handles output modulation (what the AI says/does), `mutation.ts` handles state changes (how internal state evolves). Each has independent test suites and default rule sets. Policies consume state but don't mutate it; mutations consume signals and produce new state.
+- **ADR-015**: English-only (en-US). Multi-language support removed: LANGUAGES constant deleted, language select/dropdown removed from IntroScreen, language badge removed from ConversingScreen sidebar. Hooks retain lang parameter defaulting to en-US.
 
 ## Env vars
 

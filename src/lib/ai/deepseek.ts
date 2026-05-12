@@ -42,10 +42,11 @@ export class DeepSeekAdapter implements AiAdapter {
     mode: Mode,
     difficulty: Difficulty,
     industry?: Industry,
-    topic?: Topic
+    topic?: Topic,
+    personaPrompt?: string
   ): Promise<{ content: string; shouldEnd: boolean }> {
     const systemPrompt = mode === "conversation"
-      ? `You are a friendly English conversation partner. Difficulty: ${difficulty}. ${topic ? `Topic: ${topic}.` : ""} Have a natural conversation. Be warm and engaging. Correct grammar mistakes subtly by modeling correct usage. If the user is silent, ask a follow-up question to keep the conversation going. Keep responses concise (2-4 sentences). shouldEnd is always false. You MUST begin your response with a JSON object: {"content": "your message", "shouldEnd": false} then immediately start your message. For example: {"content": "That's interesting! What made you travel there?", "shouldEnd": false} That's interesting! What made you travel there?`
+      ? (personaPrompt ?? `You are a friendly English conversation partner. Difficulty: ${difficulty}. ${topic ? `Topic: ${topic}.` : ""} Have a natural conversation. Be warm and engaging. Correct grammar mistakes subtly by modeling correct usage. If the user is silent, ask a follow-up question to keep the conversation going. Keep responses concise (2-4 sentences). shouldEnd is always false. You MUST begin your response with a JSON object: {"content": "your message", "shouldEnd": false} then immediately start your message. For example: {"content": "That's interesting! What made you travel there?", "shouldEnd": false} That's interesting! What made you travel there?`)
       : `You are an English interviewer for a ${industry} position at ${difficulty} level. Conduct a natural conversational interview. Ask questions, follow up on answers, and give brief feedback naturally. Keep responses concise (2-4 sentences). When enough topics have been covered, set shouldEnd to true. You MUST begin your response with a JSON object: {"content": "your message", "shouldEnd": false} then immediately start your message. For example: {"content": "Tell me more about your experience.", "shouldEnd": false} Tell me more about your experience.`
 
     const res = await fetch("https://api.deepseek.com/v1/chat/completions", {

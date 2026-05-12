@@ -31,7 +31,6 @@ function InterviewContent() {
   const [error, setError] = useState<string | null>(null)
   const [displayTranscript, setDisplayTranscript] = useState("")
   const [interimTranscript, setInterimTranscript] = useState("")
-  const [selectedLang, setSelectedLang] = useState("en-US")
   const [speechRate, setSpeechRate] = useState(0.9)
 
   const transcriptRef = useRef("")
@@ -44,10 +43,10 @@ function InterviewContent() {
   useEffect(() => { isSubmittingRef.current = isSubmitting }, [isSubmitting])
 
   const aiFilter = useAiVoiceFilter()
-  const tts = useSpeechSynthesis({ lang: selectedLang, rate: speechRate })
+  const tts = useSpeechSynthesis({ lang: "en-US", rate: speechRate })
 
   const stt = useSpeechRecognition({
-    lang: selectedLang,
+    lang: "en-US",
     onResult: (text) => {
       if (aiFilter.shouldFilter(text)) return
       transcriptRef.current += text
@@ -205,7 +204,6 @@ function InterviewContent() {
         industry={industry}
         topic={topic}
         difficulty={difficulty}
-        selectedLang={selectedLang}
         speechRate={speechRate}
         micPermission={micPermission}
         error={error}
@@ -213,7 +211,6 @@ function InterviewContent() {
         sttError={stt.error}
         loading={loading}
         onStart={startSession}
-        onLangChange={setSelectedLang}
         onRateChange={setSpeechRate}
       />
     )
@@ -231,25 +228,24 @@ function InterviewContent() {
   }
 
   return (
-    <ConversingScreen
-      mode={mode}
-      industry={industry}
-      topic={topic}
-      difficulty={difficulty}
-      selectedLang={selectedLang}
-      error={error}
-      messages={messages}
-      displayTranscript={displayTranscript}
-      interimTranscript={interimTranscript}
-      messagesEndRef={messagesEndRef}
-      isListening={stt.isListening}
-      isAiSpeaking={aiFilter.isAiSpeaking}
-      isSubmitting={isSubmitting}
-      loading={loading}
-      timeLeft={timeLeft}
-      formatTime={formatTime}
-      onEndInterview={endInterview}
-    />
+      <ConversingScreen
+        mode={mode}
+        industry={industry}
+        topic={topic}
+        difficulty={difficulty}
+        error={error}
+        messages={messages}
+        displayTranscript={displayTranscript}
+        interimTranscript={interimTranscript}
+        messagesEndRef={messagesEndRef}
+        isListening={stt.isListening}
+        isAiSpeaking={aiFilter.isAiSpeaking}
+        isSubmitting={isSubmitting}
+        loading={loading}
+        timeLeft={timeLeft}
+        formatTime={formatTime}
+        onEndInterview={endInterview}
+      />
   )
 }
 

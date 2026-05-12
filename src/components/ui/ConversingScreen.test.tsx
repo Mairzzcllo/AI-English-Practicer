@@ -19,7 +19,6 @@ const defaultProps = {
   industry: "tech" as const,
   topic: null,
   difficulty: "intermediate" as const,
-  selectedLang: "en-US",
   error: null,
   messages: [] as { role: string; content: string }[],
   displayTranscript: "",
@@ -62,11 +61,6 @@ describe("ConversingScreen", () => {
   it("renders mode label", () => {
     render(<ConversingScreen {...defaultProps} />)
     expect(screen.getByText("interview")).toBeDefined()
-  })
-
-  it("renders language label", () => {
-    render(<ConversingScreen {...defaultProps} />)
-    expect(screen.getByText("English (US)")).toBeDefined()
   })
 
   it("renders timer", () => {

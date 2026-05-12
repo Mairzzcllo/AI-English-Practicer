@@ -1,5 +1,5 @@
 import type { Mode, Industry, Difficulty, Topic } from "@/types"
-import { LANGUAGES, SPEECH_RATES } from "@/lib/constants"
+import { SPEECH_RATES } from "@/lib/constants"
 import { MicPermissionBanner } from "@/components/ui/MicPermissionBanner"
 
 export function IntroScreen({
@@ -7,7 +7,6 @@ export function IntroScreen({
   industry,
   topic,
   difficulty,
-  selectedLang,
   speechRate,
   micPermission,
   error,
@@ -15,14 +14,12 @@ export function IntroScreen({
   sttError,
   loading,
   onStart,
-  onLangChange,
   onRateChange,
 }: {
   mode: Mode
   industry: Industry
   topic: Topic | null
   difficulty: Difficulty
-  selectedLang: string
   speechRate: number
   micPermission: PermissionState | null
   error: string | null
@@ -30,7 +27,6 @@ export function IntroScreen({
   sttError: string | null
   loading: boolean
   onStart: () => void
-  onLangChange: (value: string) => void
   onRateChange: (value: number) => void
 }) {
   return (
@@ -54,23 +50,6 @@ export function IntroScreen({
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <label className="text-xs text-zinc-500 font-medium w-20 text-left">
-                Language
-              </label>
-              <select
-                value={selectedLang}
-                onChange={(e) => onLangChange(e.target.value)}
-                className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              >
-                {LANGUAGES.map((l) => (
-                  <option key={l.value} value={l.value}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="flex items-center justify-between gap-2">
               <label className="text-xs text-zinc-500 font-medium w-20 text-left">
                 Speed

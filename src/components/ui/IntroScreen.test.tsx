@@ -11,7 +11,6 @@ const defaultProps = {
   industry: "tech" as const,
   topic: null,
   difficulty: "intermediate" as const,
-  selectedLang: "en-US",
   speechRate: 0.9,
   micPermission: null as PermissionState | null,
   error: null,
@@ -19,7 +18,6 @@ const defaultProps = {
   sttError: "",
   loading: false,
   onStart: vi.fn(),
-  onLangChange: vi.fn(),
   onRateChange: vi.fn(),
 }
 
@@ -51,23 +49,9 @@ describe("IntroScreen", () => {
     expect(screen.getByText(/Free Talk · intermediate/i)).toBeDefined()
   })
 
-  it("renders language select", () => {
-    render(<IntroScreen {...defaultProps} />)
-    expect(screen.getByDisplayValue("English (US)")).toBeDefined()
-  })
-
   it("renders speed select", () => {
     render(<IntroScreen {...defaultProps} />)
     expect(screen.getByDisplayValue("Normal")).toBeDefined()
-  })
-
-  it("calls onLangChange when language changes", () => {
-    const onLangChange = vi.fn()
-    render(<IntroScreen {...defaultProps} onLangChange={onLangChange} />)
-    fireEvent.change(screen.getByDisplayValue("English (US)"), {
-      target: { value: "zh-CN" },
-    })
-    expect(onLangChange).toHaveBeenCalledWith("zh-CN")
   })
 
   it("calls onRateChange when speed changes", () => {

@@ -43,3 +43,41 @@
 - [P1-006] 使用 SessionCard + SkeletonList + EmptyHistory + useSessionList 重构 history/page.tsx (87→39 行)
 - [P1-007] 创建 SessionMetaCard, NotFoundState, useSessionDetail — history 详情共享组件 + hook
 - [P1-008] 使用 SessionMetaCard + NotFoundState + useSessionDetail 重构 history/[id]/page.tsx (98→67 行)
+
+## Phase 9 — Cognitive Runtime: Engine Refactoring (2026-05-12)
+
+### P0 — Type System Overhaul & New Modules
+
+- [P0-022] Refactor types.ts — EmotionalState, SignalType 5新增, BehavioralPolicy 4新增, MemoryEvent 5新增, PersonaConfig 7新增, ConversationState, crypto.randomUUID()
+- [P0-023] Refactor state.ts — EmotionalState 替代 mood, rm relationshipDrift, ConversationState tracking (updateConversationFromSignal, applyConversationDecay, updateUserMessageLength)
+- [P0-024] Refactor memory.ts — MemoryPolicy 接口, determineMemoryLevel 接受 policy 参数, createMemoryEvent 计算 emotionalWeight/relationshipImpact
+- [P0-025] Adapt all tests — 300 tests passing across 32 files (was 240)
+- [P0-016] Behavioral policies (policies.ts) — Behavior Modulation Layer: getEffectiveVerbosity, shouldTakeInitiative, getHumorLevel, shouldInterruptSilence, getCorrectionUrgency, getMirrorIntensity, shouldPersistTopic, modulateResponse
+- [P0-017] State mutation rules engine (mutation.ts) — RuleEvaluator, applyMutations, createDefaultRules (11 built-in), target resolution for runtime + relationship fields
+- [P0-018] Cognitive pipeline orchestrator (orchestrator.ts) — runCognitivePipeline: signal→state→relationship→memory→mutations→decay→modulation, 15 tests
+- [P0-019] PersonaAgent facade (persona.ts) — PersonaAgent class: constructor, processTurn, getState, needsIntervention, isEstablished, getMemorySummary, reset, 17 tests
+- [P0-020] Dynamic prompt templates (prompts.ts) — buildSystemPrompt, buildUserTurnPrompt, buildModulationHints, persona-aware system prompt assembly, 20 tests
+- [P0-021] Event-sourced store (store.ts) — InMemoryPersonaStore: createSession, appendEvent/getEvents/getEventsSince, saveSnapshot/getLatestSnapshot, deleteSession, 15 tests
+
+### P1 — Behavioral Validation
+
+- [P1-009] Memory recall consistency — recallEvent (append-safe lastIndexOf), getMostRecalled, findByImportanceRange, cross-query consistency tests (deterministic retrieval, category/importance cross-validation, idempotent compress), 15 new tests
+- [P1-010] Tone consistency — computeTone() with EmotionalState (valence/arousal) as primary signal, relationship as secondary; Tone type added; prompt uses dynamic modulation.tone with config.baseTone fallback; 4 multi-turn consistency tests
+- [P1-011] State drift behavior — 14 multi-turn integration tests for engagement death spiral, trust growth/decay, valence death spiral, compound rule interactions, relationship quality drift, signal sequences; fixed lastUserMessageLength bug via userMessage word count
+- [P1-012] Initiative quality — getEffectiveVerbosity, shouldTakeInitiative, getHumorLevel enhanced with relationship state awareness; getEffectiveResponsePacing for dynamic response speed; shouldInterruptSilence uses adaptive pacing; 10 new tests
+
+## Phase 10 — P2 Integration & Scaling (2026-05-12)
+
+- [P2-005] Store optimization — MongoDB PersonaState model (sessionId unique index + updatedAt TTL index), MongoPersonaStore implementation, CachingPersonaStore decorator (5min TTL), HMR-safe InMemoryPersonaStore via globalThis, PersonaAgent.loadState() method, persistent store replaces module-level Map in /talk route
+- [P2-006] Telemetry — TelemetryCollector module (pipeline latency, mutation rule fires, state change diffs, memory volume by category), integrated into PersonaAgent.processTurn via optional sessionId, GET/DELETE /api/telemetry endpoint with detail/sessionId filters, globalThis storage with 1000-record cap
+
+## Phase 9 — Multi-language Removal (2026-05-12)
+
+### P0 — Cleanup
+
+- [P2-003] Conversation mode integration — Integrate PersonaAgent into /talk API route for conversation mode; update AiAdapter interface to accept persona context
+- [P2-004] OpenAI/DeepSeek adapter update — Update OpenAI and DeepSeek adapters to use persona-enhanced prompt assembly from orchestrator
+- [P0-026] Remove LANGUAGES constant — Delete LANGUAGES export from constants.ts; update constants.test.ts
+- [P0-027] Remove language select from IntroScreen — Remove language select dropdown UI, onLangChange/selectedLang props; update test
+- [P0-028] Remove language label from ConversingScreen — Remove language badge, LANGUAGES import, selectedLang prop; update test
+- [P0-029] Update interview page orchestration — Remove selectedLang state, hardcode en-US in TTS/STT hooks, clean up props
