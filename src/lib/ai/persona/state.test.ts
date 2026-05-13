@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import type { RuntimeState, ConversationState } from "./types"
+import type { IntentResult } from "../conversation/types"
 import {
   processSignal,
   applyDecay,
@@ -8,7 +9,12 @@ import {
   updateConversationFromSignal,
   applyConversationDecay,
   updateUserMessageLength,
+  deriveSignalFromIntent,
 } from "./state"
+
+function intent(overrides?: Partial<IntentResult>): IntentResult {
+  return { intent: "continue_conversation", confidence: 0.6, ...overrides }
+}
 
 function baseConv(overrides?: Partial<ConversationState>): ConversationState {
   return {
@@ -195,5 +201,64 @@ describe("updateUserMessageLength", () => {
     const result = updateUserMessageLength(conv, 10)
     expect(result.turnCount).toBe(5)
     expect(result.sessionDurationMinutes).toBe(3)
+  })
+})
+
+describe("deriveSignalFromIntent", () => {
+  it("returns curiosity for ask_definition", () => {
+    const signal = deriveSignalFromIntent(intent({ intent: "ask_definition", confidence: 0.9 }), "what does X mean")
+    expect(signal.type).toBe("curiosity")
+    expect(signal.intensity).toBeGreaterThan(0.8)
+  })
+
+  it("returns correction_needed for ask_correction", () => {
+    const signal = deriveSignalFromIntent(intent({ intent: "ask_correction", confidence: 0.8 }), "is this correct")
+    expect(signal.type).toBe("correction_needed")
+    expect(signal.intensity).toBeGreaterThan(0.7)
+  })
+
+  it("returns hesitation for hesitation intent", () => {
+    const signal = deriveSignalFromIntent(intent({ intent: "hesitation", confidence: 0.4 }), "um well")
+    expect(signal.type).toBe("hesitation")
+  })
+
+  it("returns positive_sentiment for emotional_expression with positive words", () => {
+    const signal = deriveSignalFromIntent(intent({ intent: "emotional_expression", confidence: 0.8 }), "I feel great")
+    expect(signal.type).toBe("positive_sentiment")
+  })
+
+  it("returns negative_sentiment for emotional_expression with negative words", () => {
+    const signal = deriveSignalFromIntent(intent({ intent: "emotional_expression", confidence: 0.8 }), "I feel terrible")
+    expect(signal.type).toBe("negative_sentiment")
+  })
+
+  it("returns openness for emotional_expression with neutral words", () => {
+    const signal = deriveSignalFromIntent(intent({ intent: "emotional_expression", confidence: 0.8 }), "I feel something")
+    expect(signal.type).toBe("openness")
+  })
+
+  it("returns openness for small_talk", () => {
+    const signal = deriveSignalFromIntent(intent({ intent: "small_talk" }), "how are you")
+    expect(signal.type).toBe("openness")
+  })
+
+  it("returns short_reply for confirmation", () => {
+    const signal = deriveSignalFromIntent(intent({ intent: "confirmation" }), "okay")
+    expect(signal.type).toBe("short_reply")
+  })
+
+  it("returns short_reply for short continue_conversation input", () => {
+    const signal = deriveSignalFromIntent(intent({ intent: "continue_conversation" }), "ok")
+    expect(signal.type).toBe("short_reply")
+  })
+
+  it("returns question for continue_conversation with question mark", () => {
+    const signal = deriveSignalFromIntent(intent({ intent: "continue_conversation" }), "can you tell me more?")
+    expect(signal.type).toBe("question")
+  })
+
+  it("returns long_reply for long continue_conversation input", () => {
+    const signal = deriveSignalFromIntent(intent({ intent: "continue_conversation" }), "I have several things to say here today about this topic")
+    expect(signal.type).toBe("long_reply")
   })
 })

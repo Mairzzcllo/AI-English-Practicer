@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest"
-import type { PersonaConfig, BehavioralPolicy, RuntimeState, RelationshipState } from "./types"
+import type { PersonaConfig, BehavioralPolicy, RuntimeState, RelationshipState, ConversationSignal } from "./types"
 import { PersonaAgent, type PersonaAgentOptions, type ProcessTurnInput } from "./persona"
 import { type RuleEvaluator } from "./mutation"
 
@@ -359,6 +359,69 @@ describe("PersonaAgent", () => {
         const state = agent.getState()
         expect(state.runtime.energy).toBeLessThan(0.5)
       })
+    })
+  })
+
+  describe("pipeline integration (mutual modulation)", () => {
+    it("returns intent and budget when userMessage is provided", () => {
+      const result = agent.processTurn({ userMessage: "what does that mean", signal: { type: "long_reply", intensity: 0.5 } })
+      expect(result.intent).toBeDefined()
+      expect(result.budget).toBeDefined()
+      expect(result.momentum).toBeDefined()
+      expect(result.intent!.intent).toBe("ask_definition")
+    })
+
+    it("derives signal from intent when no explicit signal provided", () => {
+      const result = agent.processTurn({ userMessage: "what does X mean" })
+      expect(result.intent).toBeDefined()
+      expect(result.intent!.intent).toBe("ask_definition")
+    })
+
+    it("tracks momentum across turns with userMessage", () => {
+      agent.processTurn({ userMessage: "what does X mean" })
+      const afterFirst = agent.getState()
+      expect(afterFirst.momentum).toBeDefined()
+      expect(afterFirst.momentum.depth).toBeGreaterThan(0)
+      expect(afterFirst.momentum.momentum).toBeGreaterThan(0.5)
+
+      agent.processTurn({ userMessage: "um" })
+      const afterSecond = agent.getState()
+      expect(afterSecond.momentum.momentum).toBeLessThan(afterFirst.momentum.momentum)
+    })
+
+    it("returns pipeline results in processTurn result", () => {
+      const result = agent.processTurn({ userMessage: "hello" })
+      expect(result.intent).toBeDefined()
+      expect(result.budget).toBeDefined()
+      expect(result.momentum).toBeDefined()
+    })
+
+    it("does not return pipeline results when only signal provided", () => {
+      const result = agent.processTurn({ signal: { type: "silence", intensity: 0.5 } })
+      expect(result.intent).toBeUndefined()
+      expect(result.budget).toBeUndefined()
+      expect(result.momentum).toBeUndefined()
+    })
+
+    it("accepts intentOverride to override heuristic classification", () => {
+      const result = agent.processTurn({
+        userMessage: "hello",
+        intentOverride: { intent: "small_talk", confidence: 0.95 },
+      })
+      expect(result.intent!.intent).toBe("small_talk")
+      expect(result.intent!.confidence).toBe(0.95)
+    })
+
+    it("pipeline results affect state: ask_definition boosts engagement via curiosity signal", () => {
+      agent.processTurn({ userMessage: "what does asynchronous programming mean" })
+      const state = agent.getState()
+      expect(state.runtime.engagement).toBeGreaterThan(0.5)
+    })
+
+    it("pipeline results affect state: hesitation reduces dominance via hesitation signal", () => {
+      agent.processTurn({ userMessage: "um well I'm not sure about that" })
+      const state = agent.getState()
+      expect(state.runtime.emotional.dominance).toBeLessThan(0.5)
     })
   })
 })

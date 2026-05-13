@@ -12,12 +12,16 @@ import type {
 import type { MemoryStore } from "./memory"
 import type { ModulationOutput } from "./policies"
 import type { RuleEvaluator } from "./mutation"
+import type { IntentResult, ResponseBudget, MomentumState } from "../conversation/types"
+import type { PersonaPromptInput } from "./prompts"
 import { createDefaultRuntimeState, createDefaultRelationshipState, createDefaultConversationState, createDefaultBehavioralPolicy } from "./types"
 import { createMemoryStore, getMemorySummary } from "./memory"
 import { createDefaultRules } from "./mutation"
-import { needsIntervention } from "./state"
+import { needsIntervention, deriveSignalFromIntent } from "./state"
 import { isEstablished } from "./relationship"
 import { runCognitivePipeline } from "./orchestrator"
+import { runPipeline } from "../conversation/pipeline"
+import { createDefaultMomentumState } from "../conversation/momentum"
 import { snapshotState, recordPipelineLatency, recordStateChange, recordMutationRuleFired, recordMemoryVolume } from "./telemetry"
 
 export interface PersonaAgentOptions {
@@ -31,10 +35,11 @@ export interface PersonaAgentOptions {
 }
 
 export interface ProcessTurnInput {
-  signal: ConversationSignal
+  signal?: ConversationSignal
   userMessage?: string
   timeDeltaMinutes?: number
   sessionId?: string
+  intentOverride?: IntentResult
 }
 
 export interface ProcessTurnResult {
@@ -43,6 +48,9 @@ export interface ProcessTurnResult {
   needsIntervention: boolean
   isEstablished: boolean
   memoryEvent: MemoryEvent | null
+  intent?: IntentResult
+  budget?: ResponseBudget
+  momentum?: MomentumState
 }
 
 export interface PersonaAgentState {
@@ -53,6 +61,15 @@ export interface PersonaAgentState {
   memory: MemoryStore
   policy: BehavioralPolicy
   evaluators: RuleEvaluator[]
+  momentum: MomentumState
+}
+
+function buildModulationInput(runtime: RuntimeState, relationship: RelationshipState, policy: BehavioralPolicy) {
+  return {
+    engagement: runtime.engagement,
+    verbosity: policy.verbosity,
+    familiarity: relationship.familiarity,
+  }
 }
 
 export class PersonaAgent {
@@ -63,11 +80,13 @@ export class PersonaAgent {
   private memory!: MemoryStore
   private policy: BehavioralPolicy
   private evaluators: RuleEvaluator[]
+  private momentum: MomentumState
 
   constructor(config: PersonaConfig, options?: PersonaAgentOptions) {
     this.config = config
     this.policy = createDefaultBehavioralPolicy(options?.initialPolicy)
     this.evaluators = options?.evaluators ?? createDefaultRules()
+    this.momentum = createDefaultMomentumState()
     this.reset(options)
   }
 
@@ -76,8 +95,43 @@ export class PersonaAgent {
     const before = sid ? snapshotState(this.runtime, this.relationship, this.conversation, this.memory.events.length) : null
     const t0 = sid ? performance.now() : 0
 
+    let pipelineIntent: IntentResult | undefined
+    let pipelineBudget: ResponseBudget | undefined
+    let pipelineMomentum: MomentumState | undefined
+
+    if (input.userMessage) {
+      const personaInput: PersonaPromptInput = {
+        config: this.config,
+        runtime: this.runtime,
+        relationship: this.relationship,
+        conversation: this.conversation,
+        memory: this.memory,
+      }
+      const modulation = buildModulationInput(this.runtime, this.relationship, this.policy)
+
+      const pipelineResult = runPipeline({
+        userMessage: input.userMessage,
+        personaInput,
+        modulation,
+        momentum: this.momentum,
+        intentOverride: input.intentOverride,
+      })
+
+      pipelineIntent = pipelineResult.intent
+      pipelineBudget = pipelineResult.budget
+      pipelineMomentum = pipelineResult.momentum
+      this.momentum = pipelineResult.momentum
+    }
+
+    const effectiveSignal = input.userMessage
+      ? (input.signal ?? deriveSignalFromIntent(
+          pipelineIntent ?? { intent: "continue_conversation", confidence: 0.5 },
+          input.userMessage,
+        ))
+      : input.signal!
+
     const result = runCognitivePipeline({
-      signal: input.signal,
+      signal: effectiveSignal,
       runtime: this.runtime,
       relationship: this.relationship,
       conversation: this.conversation,
@@ -122,6 +176,9 @@ export class PersonaAgent {
       needsIntervention: result.needsIntervention,
       isEstablished: result.isEstablished,
       memoryEvent: result.memoryEvent,
+      intent: pipelineIntent,
+      budget: pipelineBudget,
+      momentum: pipelineMomentum,
     }
   }
 
@@ -134,6 +191,7 @@ export class PersonaAgent {
       memory: { events: [...this.memory.events] },
       policy: { ...this.policy },
       evaluators: [...this.evaluators],
+      momentum: { ...this.momentum },
     }
   }
 
@@ -154,6 +212,7 @@ export class PersonaAgent {
     this.relationship = createDefaultRelationshipState(options?.initialRelationship)
     this.conversation = createDefaultConversationState(options?.initialConversation)
     this.memory = options?.initialMemory ?? createMemoryStore()
+    this.momentum = createDefaultMomentumState()
   }
 
   loadState(state: { runtime: RuntimeState; relationship: RelationshipState; conversation: ConversationState; memory: MemoryStore; policy: BehavioralPolicy }): void {

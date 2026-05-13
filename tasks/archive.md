@@ -81,3 +81,23 @@
 - [P0-027] Remove language select from IntroScreen — Remove language select dropdown UI, onLangChange/selectedLang props; update test
 - [P0-028] Remove language label from ConversingScreen — Remove language badge, LANGUAGES import, selectedLang prop; update test
 - [P0-029] Update interview page orchestration — Remove selectedLang state, hardcode en-US in TTS/STT hooks, clean up props
+
+## Phase 11 — Conversation Intelligence: Pipeline MVP (2026-05-13)
+
+### P0 — Core Pipeline
+
+- [P0-030] Intent Types + Fast Heuristics + Confidence — UserIntent type (7 intents), IntentResult with confidence, keyword/pattern-based classifier (35 rules), confidence scoring with aggregation
+- [P0-031] Response Compression Policy — ResponseBudget (maxSentences, explanationDepth), deriveBudget with per-intent base + persona modulation + short-input clamp, budgetToPrompt rendering
+- [P0-032] Pipeline 最小闭环 — runPipeline chaining intent→budget→prompt, standalone (no full orchestration dependency)
+- [P0-033] Conversational Minimalism — enforceMinimalism: default no-teach unless ask_definition/ask_correction, low-confidence/short-input clamping
+- [P0-034] Ambiguity Tolerance — assessAmbiguity (none/low/high), getCarryOnHint for natural bridging utterances, pipeline integration
+
+### P1 — Conversation Intelligence: Advanced Features
+
+- [P1-013] Conversation Momentum State — MomentumState (momentum/depth/responsiveness 0-1), cross-turn tracking via intent-driven deltas, budget modulation (+50%/-30%), prompt hints, pipeline integration
+- [P1-014] LLM Semantic Intent Classifier — `classifyIntentWithLLM` async function, JSON constrained output (OpenAI response_format / DeepSeek extraction), sanitization, graceful degradation, fallback threshold at 0.4 confidence, `intentOverride` in PipelineInput
+- [P1-015] Pipeline Full Orchestration Integration — `deriveSignalFromIntent` bridge (7 intent→signal mappings), PersonaAgent momentum tracking, mutual modulation loop (intent→signal→emotion→state←modulation←budget←momentum), ProcessTurnResult/PersonaAgentState extended
+
+### P2 — Integration Testing & Edge Cases
+
+- [P2-007] 集成测试 + 边界用例 — 42 new tests in `persona.integration.test.ts`: short input (empty/single char/single word), fuzzy intent (multi-pattern/conflicting/no-match), low confidence (momentum penalty/budget clamp), intent switching (definition→confirmation→correction→hesitation→emotional), full-loop mutual modulation (6-stage output, engagement/verbosity/familiarity modulation, momentum rise/fall, relationship establishment, intentOverride, long-conversation bounded values)

@@ -6,6 +6,8 @@ import type {
 } from "./types"
 import type { MemoryStore } from "./memory"
 import type { ModulationOutput } from "./policies"
+import type { ResponseBudget, MomentumState } from "../conversation/types"
+import { budgetToPrompt } from "../conversation/budget"
 import { getMemorySummary } from "./memory"
 
 export interface PersonaPromptInput {
@@ -15,6 +17,8 @@ export interface PersonaPromptInput {
   conversation: ConversationState
   memory?: MemoryStore
   modulation?: ModulationOutput
+  budget?: ResponseBudget
+  momentum?: MomentumState
 }
 
 function formatEmotionalState(runtime: RuntimeState): string {
@@ -99,6 +103,15 @@ export function buildSystemPrompt(input: PersonaPromptInput): string {
 
   if (modulation) {
     sections.push(`Behavioral hints: ${buildModulationHints(modulation)}`)
+  }
+
+  if (input.budget) {
+    sections.push(`Response constraints: ${budgetToPrompt(input.budget)}`)
+  }
+
+  if (input.momentum) {
+    const p = input.momentum
+    sections.push(`Momentum: m=${p.momentum.toFixed(2)}, d=${p.depth.toFixed(2)}, r=${p.responsiveness.toFixed(2)}`)
   }
 
   return sections.join("\n")

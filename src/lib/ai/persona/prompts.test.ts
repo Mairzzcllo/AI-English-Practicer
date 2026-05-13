@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import type { PersonaConfig, RuntimeState, RelationshipState, ConversationState } from "./types"
 import type { ModulationOutput } from "./policies"
+import type { ResponseBudget } from "../conversation/types"
 import { buildSystemPrompt, buildUserTurnPrompt, buildModulationHints, type PersonaPromptInput } from "./prompts"
 import { createMemoryEvent } from "./types"
 import { createMemoryStore, storeEvent } from "./memory"
@@ -153,6 +154,20 @@ describe("buildSystemPrompt", () => {
   it("includes conversation stats", () => {
     const prompt = buildSystemPrompt(buildInput())
     expect(prompt).toContain("turn 8")
+  })
+
+  it("includes response constraints when budget is provided", () => {
+    const budget: ResponseBudget = { maxSentences: 2, explanationDepth: 0 }
+    const prompt = buildSystemPrompt(buildInput({ budget }))
+    expect(prompt).toContain("Response constraints")
+    expect(prompt).toContain("2 sentences")
+    expect(prompt).toContain("Do not explain")
+  })
+
+  it("includes explanation depth hint when budget has high depth", () => {
+    const budget: ResponseBudget = { maxSentences: 4, explanationDepth: 0.9 }
+    const prompt = buildSystemPrompt(buildInput({ budget }))
+    expect(prompt).toContain("full in-depth explanation")
   })
 
   it("produces deterministic output for same inputs", () => {

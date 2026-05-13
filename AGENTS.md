@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 10 (P2 Integration & Scaling) complete. Cognitive Runtime fully integrated into /talk route with persona persistence, caching, and telemetry. 431 tests passing (38 files), lint clean.
+Phase 10 (P2 Integration & Scaling) complete. Phase 11 (Conversation Intelligence) P1 complete — Momentum State, LLM Semantic Intent Classifier, Pipeline↔PersonaEngine mutual modulation. 595 tests passing (45 files), lint clean.
 
 ## Stack
 
@@ -65,7 +65,16 @@ src/
 │   │   ├── adapter.ts                  AiAdapter interface (mode + topic + industry params)
 │   │   ├── openai.ts                   OpenAI adapter (mode-aware prompts)
 │   │   ├── deepseek.ts                 DeepSeek adapter (JSON extraction fallback, mode-aware)
-│   │   └── index.ts                    factory (env AI_PROVIDER)
+│   │   ├── index.ts                    factory (env AI_PROVIDER)
+│   │   └── conversation/ (Phase 11 — Conversation Intelligence)
+│   │       ├── types.ts       UserIntent, IntentResult, ResponseBudget, MomentumState, AmbiguityAssessment
+│   │       ├── intent.ts      classifyIntent (keyword/pattern heuristic classifier, 35 rules)
+│   │       ├── budget.ts      deriveBudget (per-intent base + persona modulation + short clamp)
+│   │       ├── minimalism.ts  enforceMinimalism (default no-teach unless ask_definition/ask_correction)
+│   │       ├── ambiguity.ts   assessAmbiguity + getCarryOnHint (natural bridging for ambiguous input)
+│   │       ├── momentum.ts    MomentumState update + toPrompt (intent-driven cross-turn tracking)
+│   │       ├── llm-intent.ts  classifyIntentWithLLM (async, JSON constrained output, low-conf fallback)
+│   │       └── pipeline.ts    runPipeline (intent→budget→minimalism→ambiguity→momentum→prompt)
 │   └── ai/persona/ (Phase 9 — Cognitive Runtime)
 │       ├── types.ts           PersonaConfig, EmotionalState, RuntimeState, RelationshipState, BehavioralPolicy, MemoryEvent, ConversationState, MemoryPolicy, etc.
 │       ├── state.ts           EmotionalState valence/arousal/dominance, RuntimeState decay, ConversationState tracking, processSignal
@@ -117,6 +126,9 @@ src/
 - **ADR-013** (`adr/ADR-013.md`): Cognitive Runtime Architecture — `src/lib/ai/persona/` as standalone engine with stateful persona, relationship as first-class object, event-sourced memory, behavioral policies modulation layer, and explicit state mutation rules. P0: engine, P1: behavioral validation, P2: integration.
 - **ADR-014**: Policy/Mutation separation — `policies.ts` handles output modulation (what the AI says/does), `mutation.ts` handles state changes (how internal state evolves). Each has independent test suites and default rule sets. Policies consume state but don't mutate it; mutations consume signals and produce new state.
 - **ADR-015**: English-only (en-US). Multi-language support removed: LANGUAGES constant deleted, language select/dropdown removed from IntroScreen, language badge removed from ConversingScreen sidebar. Hooks retain lang parameter defaulting to en-US.
+- **ADR-016** (`adr/ADR-016.md`): Conversation Intelligence Layer — Intent Resolution (hybrid heuristic+LLM+state), Response Compression Policy (maxSentences, explanationDepth budget), Conversational Minimalism (default no-teach), Ambiguity Tolerance (low confidence → natural carry-on). Pipeline: input → intent → budget → persona → prompt.
+- **ADR-017** (`adr/ADR-017.md`): Mutual Modulation Architecture — Conversation Pipeline (intent/budget/momentum) and Persona Engine (emotion/relationship/engagement) integrated through `PersonaAgent.processTurn()`. The 6-stage loop: (1) persona state → modulation input → runPipeline, (2) intent → deriveSignalFromIntent (7 mappings), (3) derived signal → runCognitivePipeline, (4) updated runtime/relationship feeds back into next turn's modulation. Backward compatible: signal-only calls skip conversation pipeline entirely.
+- **ADR-018**: Conversation Intelligence pipeline modules — 8 modules (types, intent, budget, minimalism, ambiguity, momentum, llm-intent, pipeline). Pipeline order: classifyIntent → deriveBudget → enforceMinimalism → assessAmbiguity → updateMomentum → prompt assembly. `intentOverride` in PipelineInput allows external (LLM) classification to override heuristic result.
 
 ## Env vars
 

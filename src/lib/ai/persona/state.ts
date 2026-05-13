@@ -1,4 +1,5 @@
 import type { RuntimeState, ConversationSignal, ConversationState, EmotionalState } from "./types"
+import type { IntentResult } from "../conversation/types"
 import { normalizeStateValue } from "./types"
 
 function getFieldRange(field: string): [number, number] {
@@ -184,4 +185,50 @@ export function updateUserMessageLength(
   length: number,
 ): ConversationState {
   return { ...conv, lastUserMessageLength: length }
+}
+
+function checkPositiveSentiment(message: string): boolean {
+  const positives = ["love", "great", "good", "like", "wonderful", "amazing", "nice", "happy", "enjoy", "excellent", "fantastic"]
+  const lower = message.toLowerCase()
+  return positives.some(w => lower.includes(w))
+}
+
+function checkNegativeSentiment(message: string): boolean {
+  const negatives = ["hate", "bad", "terrible", "awful", "sad", "angry", "frustrat", "disappoint", "horrible"]
+  const lower = message.toLowerCase()
+  return negatives.some(w => lower.includes(w))
+}
+
+export function deriveSignalFromIntent(
+  intent: IntentResult,
+  message: string,
+): ConversationSignal {
+  const wordCount = message.trim().split(/\s+/).filter(Boolean).length
+
+  switch (intent.intent) {
+    case "ask_definition":
+      return { type: "curiosity", intensity: 0.6 + intent.confidence * 0.3 }
+    case "ask_correction":
+      return { type: "correction_needed", intensity: 0.5 + intent.confidence * 0.3 }
+    case "hesitation":
+      return { type: "hesitation", intensity: 0.5 + intent.confidence * 0.3 }
+    case "emotional_expression": {
+      const pos = checkPositiveSentiment(message)
+      const neg = checkNegativeSentiment(message)
+      if (pos && !neg) return { type: "positive_sentiment", intensity: 0.6 + intent.confidence * 0.3 }
+      if (neg) return { type: "negative_sentiment", intensity: 0.5 + intent.confidence * 0.3 }
+      return { type: "openness", intensity: 0.5 + intent.confidence * 0.2 }
+    }
+    case "small_talk":
+      return { type: "openness", intensity: 0.5 }
+    case "confirmation":
+      return { type: "short_reply", intensity: 0.4 }
+    case "continue_conversation":
+    default: {
+      if (wordCount < 3) return { type: "short_reply", intensity: 0.4 }
+      if (message.includes("?")) return { type: "question", intensity: 0.6 }
+      if (wordCount > 10) return { type: "long_reply", intensity: 0.6 }
+      return { type: "long_reply", intensity: 0.5 }
+    }
+  }
 }
